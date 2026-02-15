@@ -1,0 +1,13 @@
+{
+  "km_anual": 241028034.49999997,
+  "passageiros_ano": 379308821.5400886,
+  "emissoes_evitadas_ton": 273191.08981523284,
+  "capex_total": 11444482500.0,
+  "opex_diesel_anual": 695606907.5669999,
+  "opex_eletrico_anual": 359566280.27567124,
+  "economia_opex_anual": 336040627.29132867,
+  "economia_opex_pct": 48.30898365668712,
+  "frota_total": 2482,
+  "frota_d9w": 2299,
+  "frota_d11b": 183
+}

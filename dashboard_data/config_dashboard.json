@@ -1,0 +1,20 @@
+{
+  "cores_operadoras": {
+    "PIRACICABANA": "#FF6B6B",
+    "PIONEIRA": "#4ECDC4",
+    "SAO_JOSE": "#45B7D1",
+    "URBI": "#96CEB4",
+    "MARECHAL": "#FFEAA7",
+    "COOBRATAETE": "#DFE6E9"
+  },
+  "centro_mapa": {
+    "lat": -15.793889,
+    "lon": -47.882778
+  },
+  "zoom_inicial": 11,
+  "parametros_financeiros": {
+    "tma": 0.08,
+    "vida_util": 15,
+    "cambio": 5.4
+  }
+}
