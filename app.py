@@ -466,15 +466,13 @@ def pagina_analise_operacional(metricas, kpis_base):
     # RANKINGS COM DADOS REAIS
     # ========================================================================
     
-    DIR_BASE = Path(r"C:\Users\Felipe\Documents\Trabalho_de_Logistica")
-    
     # TOP 10 LINHAS MAIS LONGAS
     st.markdown("### 🚌 TOP 10 Linhas Mais Longas")
     
     # ... seu código anterior ...
 
     try:
-        df_consolidado = pd.read_excel(DIR_BASE / 'data_processed' / 'NB1' / 'dados_consolidados.xlsx')
+        df_consolidado = pd.read_excel('dados_consolidados.xlsx')
 
         # ... (após ler o df_consolidado)
 
@@ -524,8 +522,8 @@ def pagina_analise_operacional(metricas, kpis_base):
 
     try:
         # 1. Carregar as duas bases
-        df_horarios = pd.read_csv(DIR_BASE / 'data_processed' / 'NB2' / 'horarios_expandidos.csv')
-        df_consolidado = pd.read_excel(DIR_BASE / 'data_processed' / 'NB1' / 'dados_consolidados.xlsx')
+        df_horarios = pd.read_csv('horarios_expandidos.csv')
+        df_consolidado = pd.read_excel('dados_consolidados.xlsx')
 
         # 2. Preparar as colunas para o merge (garantir que ambas sejam string)
         df_horarios['linha_nome'] = df_horarios['linha_nome'].astype(str)
@@ -579,7 +577,7 @@ def pagina_analise_operacional(metricas, kpis_base):
     
     try:
         df_frota = pd.read_excel(
-            DIR_BASE / 'data_processed' / 'NB2' / 'analise_frota_completa.xlsx',
+            'analise_frota_completa.xlsx',
             sheet_name='Investimento'
         )
         
