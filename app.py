@@ -135,11 +135,24 @@ def criar_mapa_profissional(df_paradas, garagens, terminais, config, filtros, he
     
     # Garagens
     for g in garagens:
+    # Monta popup rico com todas as informações
+        popup_html = f"""
+        <div style='font-family: Arial; width: 250px;'>
+            <h4 style='margin: 0; color: #1f77b4;'>🏠 {g.get('garagem', 'N/A')}</h4>
+            <hr style='margin: 5px 0;'>
+            <b>Operadora:</b> {g.get('operadora', 'N/A')}<br>
+            <b>Frota:</b> {g.get('frota', 0)} ônibus<br>
+            <b>Carregadores:</b> {g.get('carregadores', 0)}<br>
+            <b>Potência:</b> {g.get('potencia_mva', 0):.2f} MVA<br>
+            <b>Custo Total:</b> R$ {g.get('custo_total', 0)/1e6:.2f} milhões
+        </div>
+        """
+        
         folium.Marker(
             [g['lat'], g['lon']],
-            popup=f"<b>🏠 {g['garagem']}</b><br>{g.get('operadora', 'N/A')}<br>Frota: {g.get('frota', 0)}",
+            popup=folium.Popup(popup_html, max_width=300),
             icon=folium.Icon(color='blue', icon='home', prefix='fa'),
-            tooltip=g['garagem']
+            tooltip=f"🏠 {g.get('garagem', 'Garagem')}"
         ).add_to(m)
     
     # Terminais
@@ -156,7 +169,7 @@ def criar_mapa_profissional(df_paradas, garagens, terminais, config, filtros, he
         heat_data = [[r['lat'], r['lon']] for _, r in df_paradas.iterrows()]
         HeatMap(heat_data, radius=15, blur=20).add_to(m)
     else:
-        # Usa TODAS as paradas (otimizado com CircleMarker)
+        # USA TODAS AS 9.287 PARADAS!
         for _, p in df_paradas.iterrows():
             folium.CircleMarker(
                 [p['lat'], p['lon']],
@@ -171,6 +184,7 @@ def criar_mapa_profissional(df_paradas, garagens, terminais, config, filtros, he
     folium.LayerControl().add_to(m)
     return m
 
+# ============================================================================
 # ============================================================================
 # SIDEBAR
 # ============================================================================
@@ -368,9 +382,12 @@ def pagina_home(metricas, filtros, dados, df_paradas, config, kpis_base):
     
     heatmap = st.checkbox("🔥 Heatmap")
     
-    mapa = criar_mapa_profissional(df_paradas, dados['garagens'], 
-                                    dados['terminais'], config, filtros, heatmap)
+    # Aviso de carregamento
+    with st.spinner(f'⏳ Carregando {len(df_paradas):,} paradas no mapa... Pode levar até 30 segundos.'):
+        mapa = criar_mapa_profissional(df_paradas, dados['garagens'], 
+                                        dados['terminais'], config, filtros, heatmap)
     
+    st.success(f"✅ Mapa carregado com {len(df_paradas):,} paradas!")
     st_folium(mapa, width=1400, height=500, returned_objects=[])
 
 # ============================================================================
@@ -431,26 +448,160 @@ def pagina_viabilidade(dados, metricas, filtros):
 # ============================================================================
 
 def pagina_analise_operacional(metricas, kpis_base):
+    """Análise Operacional com Rankings REAIS"""
+    
     st.title("📊 Análise Operacional")
     
+    # KPIs
     st.markdown("### 📈 Indicadores Operacionais")
     
     col1, col2, col3 = st.columns(3)
-    
     col1.metric("Passageiros/Dia", f"{metricas['passageiros_ano']/365/1e6:.2f}M")
     col2.metric("KM/Dia", f"{metricas['km_anual']/365/1e6:.2f}M")
     col3.metric("Ônibus Ativos", f"{metricas['frota']:,}")
     
     st.markdown("---")
-    st.markdown("### 🚧 Rankings em Desenvolvimento")
     
-    st.info("""
-    **Próximas análises:**
-    - TOP 10 Linhas Mais Longas
-    - TOP 10 Linhas com Maior Demanda
-    - TOP 10 Operadoras por Frota
-    - Análise por Região Administrativa
-    """)
+    # ========================================================================
+    # RANKINGS COM DADOS REAIS
+    # ========================================================================
+    
+    DIR_BASE = Path(r"C:\Users\Felipe\Documents\Trabalho_de_Logistica")
+    
+    # TOP 10 LINHAS MAIS LONGAS
+    st.markdown("### 🚌 TOP 10 Linhas Mais Longas")
+    
+    # ... seu código anterior ...
+
+    try:
+        df_consolidado = pd.read_excel(DIR_BASE / 'data_processed' / 'NB1' / 'dados_consolidados.xlsx')
+
+        # ... (após ler o df_consolidado)
+
+        # Filtro para excluir a linha 206.1 da Marechal
+        # Usamos o operador ~ para "negar" a condição (trazer tudo que NÃO seja isso)
+        df_consolidado = df_consolidado[~((df_consolidado['linha_nome'].astype(str) == '206.1') & 
+                                        (df_consolidado['operadora'] == 'MARECHAL'))]
+
+               
+        # Calcula distância total
+        df_consolidado['km_total'] = df_consolidado['km_ida_circular'] + df_consolidado['km_volta']
+        
+        # 1. Pegamos o Top 10 e garantimos que a coluna 'linha_nome' seja STRING (Texto)
+        # Isso evita que o Plotly trate o eixo Y como uma escala numérica
+        top_longas = df_consolidado.nlargest(10, 'km_total')[['linha_nome', 'operadora', 'km_total']].copy()
+        top_longas['linha_nome'] = top_longas['linha_nome'].astype(str)
+        
+        # 2. Ordenamos para que a maior fique no topo no gráfico de barras horizontais
+        # O Plotly renderiza de baixo para cima, então ordenamos de forma crescente para o maior aparecer em cima
+        top_longas = top_longas.sort_values(by='km_total', ascending=True)
+
+        fig = px.bar(
+            top_longas,
+            x='km_total',
+            y='linha_nome',
+            orientation='h',
+            color='operadora',
+            title="TOP 10 Linhas Mais Longas (KM Total)",
+            labels={'km_total': 'Distância (km)', 'linha_nome': 'Linha'},
+            # Força o eixo Y a tratar os dados como categorias (nomes)
+            category_orders={"linha_nome": top_longas['linha_nome'].tolist()}
+        )
+        
+        # 3. Ajuste adicional para garantir que todos os nomes apareçam
+        fig.update_yaxes(type='category')
+        
+        fig.update_layout(height=500) # Aumentei um pouco para não cortar os nomes
+        st.plotly_chart(fig, use_container_width=True)
+
+    except Exception as e:
+        st.warning(f"⚠️ Não foi possível carregar dados: {e}")
+        
+        st.markdown("---")
+    
+    # TOP 10 LINHAS COM MAIOR DEMANDA
+    st.markdown("### 📈 TOP 10 Linhas com Maior Demanda")
+
+    try:
+        # 1. Carregar as duas bases
+        df_horarios = pd.read_csv(DIR_BASE / 'data_processed' / 'NB2' / 'horarios_expandidos.csv')
+        df_consolidado = pd.read_excel(DIR_BASE / 'data_processed' / 'NB1' / 'dados_consolidados.xlsx')
+
+        # 2. Preparar as colunas para o merge (garantir que ambas sejam string)
+        df_horarios['linha_nome'] = df_horarios['linha_nome'].astype(str)
+        df_consolidado['linha_nome'] = df_consolidado['linha_nome'].astype(str)
+
+        # 3. Mesclar as bases para trazer 'operadora' e 'cor_companhia_x' para os horários
+        # Usamos 'left' para manter todos os horários, mesmo que a linha não esteja no consolidado
+        df_merged = pd.merge(
+            df_horarios, 
+            df_consolidado[['linha_nome', 'operadora', 'cor_companhia_x']], 
+            on='linha_nome', 
+            how='left'
+        )
+
+        # 4. FILTRO: Desconsiderar a linha 0.808 da URBI
+        # Usamos o ~ para manter tudo que NÃO atenda a essa condição específica
+        df_merged = df_merged[~((df_merged['linha_nome'] == '0.808') & 
+                                (df_merged['operadora'] == 'URBI'))]
+
+        # 5. Agora sim, agrupar incluindo as informações da operadora
+        demanda = df_merged.groupby(['linha_nome', 'operadora', 'cor_companhia_x']).size().reset_index(name='horarios_semana')
+        
+        # 6. Pegar o Top 10 e ordenar
+        top_demanda = demanda.nlargest(10, 'horarios_semana').copy()
+        top_demanda = top_demanda.sort_values(by='horarios_semana', ascending=True)
+
+        # 7. Criar um mapa de cores para o Plotly usar as cores oficiais 'cor_companhia_x'
+        cores_map = dict(zip(top_demanda['operadora'], top_demanda['cor_companhia_x']))
+
+        fig = px.bar(
+            top_demanda,
+            x='horarios_semana',
+            y='linha_nome',
+            orientation='h',
+            color='operadora',
+            color_discrete_map=cores_map, # Usa as cores vindas da sua base!
+            title="TOP 10 Linhas com Maior Demanda (Horários/Semana)",
+            labels={'horarios_semana': 'Viagens por Semana', 'linha_nome': 'Linha'}
+        )
+
+        fig.update_yaxes(type='category')
+        fig.update_layout(height=450, showlegend=True)
+        
+        st.plotly_chart(fig, use_container_width=True)
+
+    except Exception as e:
+        st.warning(f"⚠️ Erro ao processar demanda: {e}")
+    
+    # TOP 10 OPERADORAS POR FROTA
+    st.markdown("### 🚌 TOP 10 Operadoras por Frota Elétrica")
+    
+    try:
+        df_frota = pd.read_excel(
+            DIR_BASE / 'data_processed' / 'NB2' / 'analise_frota_completa.xlsx',
+            sheet_name='Investimento'
+        )
+        
+        # Soma frota por operadora
+        frota_op = df_frota.groupby('operadora')['frota_total'].sum().reset_index()
+        top_frota = frota_op.nlargest(10, 'frota_total')
+        
+        fig = px.bar(
+            top_frota,
+            x='frota_total',
+            y='operadora',
+            orientation='h',
+            title="TOP 10 Operadoras por Frota Elétrica",
+            labels={'frota_total': 'Frota Elétrica', 'operadora': 'Operadora'},
+            color='frota_total',
+            color_continuous_scale='Blues'
+        )
+        fig.update_layout(height=400)
+        st.plotly_chart(fig, width='stretch')
+        
+    except Exception as e:
+        st.warning(f"⚠️ Não foi possível carregar dados: {e}")
 
 # ============================================================================
 # MAIN
